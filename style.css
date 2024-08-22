@@ -1,0 +1,51 @@
+let mediaRecorder;
+let recordedBlobs;
+
+const video = document.getElementById('video');
+const startButton = document.getElementById('startButton');
+const recordButton = document.getElementById('recordButton');
+const stopButton = document.getElementById('stopButton');
+const status = document.getElementById('status');
+
+startButton.addEventListener('click', async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    video.srcObject = stream;
+    recordButton.disabled = false;
+});
+
+recordButton.addEventListener('click', () => {
+    recordedBlobs = [];
+    const options = { mimeType: 'video/webm;codecs=vp9' };
+    mediaRecorder = new MediaRecorder(video.srcObject, options);
+
+    mediaRecorder.ondataavailable = event => {
+        if (event.data && event.data.size > 0) {
+            recordedBlobs.push(event.data);
+        }
+    };
+
+    mediaRecorder.onstop = async () => {
+        const blob = new Blob(recordedBlobs, { type: 'video/webm' });
+        const formData = new FormData();
+        formData.append('video', blob, 'recorded-video.webm');
+
+        status.textContent = 'Uploading video...';
+        await fetch('/upload', {
+            method: 'POST',
+            body: formData
+        });
+
+        status.textContent = 'Video uploaded and notification sent!';
+    };
+
+    mediaRecorder.start();
+    status.textContent = 'Recording...';
+    recordButton.disabled = true;
+    stopButton.disabled = false;
+});
+
+stopButton.addEventListener('click', () => {
+    mediaRecorder.stop();
+    recordButton.disabled = false;
+    stopButton.disabled = true;
+});
